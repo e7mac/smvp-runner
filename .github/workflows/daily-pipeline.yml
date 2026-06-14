@@ -4,19 +4,36 @@ name: Daily Content Pipeline (runner)
 # Public repos get unlimited free Actions minutes, so the heavy daily render
 # runs here for $0. Each job checks out the private repo at runtime using a
 # read-only fine-grained PAT (secret SMVP_REPO_PAT) and runs its scripts.
-# The private repo keeps workflow_dispatch (for the drafts.e7mac.com buttons);
-# only the cron schedules were moved here.
+#
+# Mirrors the private repo's daily-pipeline triggers so the drafts.e7mac.com
+# buttons (render-latest with app/recipe, and the explorer's per-piece "render")
+# dispatch THIS workflow. Keep the inputs in sync with the private repo.
 
 on:
   schedule:
     - cron: '0 13 * * *'
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      app:
+        description: App slug
+        default: realeartrainer
+      recipe:
+        description: Recipe key
+        default: chord_quiz
+      piece:
+        description: Corpus work id to render a single piece (whozart/stave) into drafts; blank = normal run
+        default: ''
+      purge_whozart:
+        description: Purge existing whozart drafts before the batch render
+        type: boolean
+        default: false
+      purge_stave:
+        description: Purge existing stave/RSR drafts before the batch render
+        type: boolean
+        default: false
 
 permissions:
   contents: read
-
-env:
-  PRIVATE_REPO: e7mac/social-media-video-pipeline
 
 jobs:
   test:
@@ -49,6 +66,8 @@ jobs:
 
   render-batch:
     needs: test
+    # Cron: always. Manual dispatch: only when purging whozart (targeted refresh).
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.purge_whozart }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -73,9 +92,11 @@ jobs:
         run: >-
           python -m scripts.render_batch --app whozart --n 10
           --piano-only --famous-share 0.85
+          ${{ (github.event_name == 'workflow_dispatch' && inputs.purge_whozart) && '--purge' || '' }}
 
   render-batch-stave:
     needs: test
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.purge_stave }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -99,9 +120,39 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
         run: >-
           python -m scripts.render_batch --app stave --n 10 --piano-only
+          ${{ (github.event_name == 'workflow_dispatch' && inputs.purge_stave) && '--purge' || '' }}
+
+  render-piece:
+    needs: test
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.piece != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: e7mac/social-media-video-pipeline
+          ref: main
+          token: ${{ secrets.SMVP_REPO_PAT }}
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11', cache: 'pip' }
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: pip install -r requirements.txt
+      - run: python -m playwright install --with-deps chromium
+      - name: Render one piece into drafts
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CORPUS_DATABASE_URL: ${{ secrets.CORPUS_DATABASE_URL }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+        run: >-
+          python -m scripts.render_batch
+          --app "${{ inputs.app }}" --piece "${{ inputs.piece }}"
 
   render-and-notify:
     needs: test
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.piece == '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -128,7 +179,11 @@ jobs:
           RET_AUDIO_SOURCE: itunes
         run: |
           export PATH="$HOME/.deno/bin:$PATH"
-          PAIRS="realeartrainer:chord_quiz"
+          if [ -n "${{ github.event.inputs.app }}" ]; then
+            PAIRS="${{ github.event.inputs.app }}:${{ github.event.inputs.recipe }}"
+          else
+            PAIRS="realeartrainer:chord_quiz"
+          fi
           rc=0
           for pair in $PAIRS; do
             app="${pair%%:*}"; recipe="${pair##*:}"

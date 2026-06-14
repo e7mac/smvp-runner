@@ -1,0 +1,34 @@
+name: Publish Now (Postiz) (runner)
+
+# Public runner mirror of the private repo's publish-now.yml. Dispatched by the
+# "Publish now" button on drafts.e7mac.com (Worker → workflow_dispatch). Forces
+# POSTIZ_PUBLISH_ENABLED=1; publish.py refuses any item that isn't 'approved'.
+on:
+  workflow_dispatch:
+    inputs:
+      item_id:
+        description: content_items.id to publish now
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish-now:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: e7mac/social-media-video-pipeline
+          ref: main
+          token: ${{ secrets.SMVP_REPO_PAT }}
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11', cache: 'pip' }
+      - run: pip install -r requirements.txt
+      - name: Publish item now
+        env:
+          POSTIZ_API_KEY: ${{ secrets.POSTIZ_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CORPUS_DATABASE_URL: ${{ secrets.CORPUS_DATABASE_URL }}
+          POSTIZ_PUBLISH_ENABLED: '1'
+        run: python scripts/publish.py --item "${{ github.event.inputs.item_id }}"
