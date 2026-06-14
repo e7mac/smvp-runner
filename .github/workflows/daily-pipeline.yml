@@ -116,14 +116,6 @@ jobs:
       - run: pip install -r requirements.txt
       - run: python -m playwright install --with-deps chromium
       - run: curl -fsSL https://deno.land/install.sh | sh
-      - name: Prepare YouTube cookies
-        env:
-          YTDLP_COOKIES_B64: ${{ secrets.YTDLP_COOKIES_B64 }}
-        run: |
-          if [ -n "$YTDLP_COOKIES_B64" ]; then
-            echo "$YTDLP_COOKIES_B64" | base64 --decode > youtube_cookies.txt
-            echo "YTDLP_COOKIES_PATH=${GITHUB_WORKSPACE}/youtube_cookies.txt" >> "$GITHUB_ENV"
-          fi
       - name: Run recipe
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -133,7 +125,6 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
           AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-          YTDLP_USER_AGENT: ${{ secrets.YTDLP_USER_AGENT }}
           RET_AUDIO_SOURCE: itunes
         run: |
           export PATH="$HOME/.deno/bin:$PATH"

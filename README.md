@@ -46,7 +46,7 @@ Mirror of the private repo's secrets, plus the PAT:
 `SMVP_REPO_PAT`, `DATABASE_URL`, `CORPUS_DATABASE_URL`, `MUSIC_AI_API_KEY`,
 `POSTIZ_API_KEY`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`,
 `AWS_DEFAULT_REGION`, `SMTP_SERVER_ADDRESS`, `SMTP_SERVER_PORT`, `SMTP_USERNAME`,
-`SMTP_PASSWORD`, `SMTP_FROM_ADDRESS`, `YTDLP_COOKIES_B64`, `YTDLP_USER_AGENT`.
+`SMTP_PASSWORD`, `SMTP_FROM_ADDRESS`.
 
 When pipeline secrets rotate, update them in **both** repos (or retire the
 private repo's cron secrets if you fully cut over).
