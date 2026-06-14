@@ -1,0 +1,53 @@
+name: Recipe selection preview (runner)
+
+# Dispatched by drafts.e7mac.com (POST /api/recipes/preview) to compute the next
+# N picks a corpus-backed recipe (stave/whozart) WOULD select under a given
+# config — WITHOUT rendering. Runs scripts/preview.py from the private repo,
+# which calls the EXACT select_batch and writes a preview_runs row that the
+# Worker then polls. Lightweight: no ffmpeg / playwright / AWS, just DB + corpus
+# reads, so it starts and finishes fast.
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: App slug (stave | whozart)
+        required: true
+      recipe:
+        description: Recipe key (read_notes | name_that_piece)
+        required: true
+      token:
+        description: preview_runs token to write the result to
+        required: true
+      patch:
+        description: JSON object of in-flight (unsaved) config edits
+        default: '{}'
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: e7mac/social-media-video-pipeline
+          ref: main
+          token: ${{ secrets.SMVP_REPO_PAT }}
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11', cache: 'pip' }
+      - run: pip install -r requirements.txt
+      - name: Compute selection preview
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          # corpus DB (works/scores) that select_batch reads; corpus_selector
+          # falls back to DATABASE_URL if unset (same Neon instance here).
+          CORPUS_DATABASE_URL: ${{ secrets.CORPUS_DATABASE_URL }}
+        run: >-
+          python -m scripts.preview
+          --app "${{ inputs.app }}"
+          --recipe "${{ inputs.recipe }}"
+          --token "${{ inputs.token }}"
+          --patch '${{ inputs.patch }}'
