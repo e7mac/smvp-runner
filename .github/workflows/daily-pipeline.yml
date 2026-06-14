@@ -1,0 +1,167 @@
+name: Daily Content Pipeline (runner)
+
+# PUBLIC runner for the private e7mac/social-media-video-pipeline repo.
+# Public repos get unlimited free Actions minutes, so the heavy daily render
+# runs here for $0. Each job checks out the private repo at runtime using a
+# read-only fine-grained PAT (secret SMVP_REPO_PAT) and runs its scripts.
+# The private repo keeps workflow_dispatch (for the drafts.e7mac.com buttons);
+# only the cron schedules were moved here.
+
+on:
+  schedule:
+    - cron: '0 13 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+env:
+  PRIVATE_REPO: e7mac/social-media-video-pipeline
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: smvp_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/smvp_test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: e7mac/social-media-video-pipeline
+          ref: main
+          token: ${{ secrets.SMVP_REPO_PAT }}
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11', cache: 'pip' }
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: pip install -r requirements.txt
+      - run: python -m playwright install --with-deps chromium
+      - run: pytest -v
+
+  render-batch:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: e7mac/social-media-video-pipeline
+          ref: main
+          token: ${{ secrets.SMVP_REPO_PAT }}
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11', cache: 'pip' }
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: pip install -r requirements.txt
+      - run: python -m playwright install --with-deps chromium
+      - name: Render daily whozart batch into drafts
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CORPUS_DATABASE_URL: ${{ secrets.CORPUS_DATABASE_URL }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+        run: >-
+          python -m scripts.render_batch --app whozart --n 10
+          --piano-only --famous-share 0.85
+
+  render-batch-stave:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: e7mac/social-media-video-pipeline
+          ref: main
+          token: ${{ secrets.SMVP_REPO_PAT }}
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11', cache: 'pip' }
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: pip install -r requirements.txt
+      - run: python -m playwright install --with-deps chromium
+      - name: Render stave batch into drafts
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CORPUS_DATABASE_URL: ${{ secrets.CORPUS_DATABASE_URL }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+        run: >-
+          python -m scripts.render_batch --app stave --n 10 --piano-only
+
+  render-and-notify:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: e7mac/social-media-video-pipeline
+          ref: main
+          token: ${{ secrets.SMVP_REPO_PAT }}
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11', cache: 'pip' }
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: pip install -r requirements.txt
+      - run: python -m playwright install --with-deps chromium
+      - run: curl -fsSL https://deno.land/install.sh | sh
+      - name: Prepare YouTube cookies
+        env:
+          YTDLP_COOKIES_B64: ${{ secrets.YTDLP_COOKIES_B64 }}
+        run: |
+          if [ -n "$YTDLP_COOKIES_B64" ]; then
+            echo "$YTDLP_COOKIES_B64" | base64 --decode > youtube_cookies.txt
+            echo "YTDLP_COOKIES_PATH=${GITHUB_WORKSPACE}/youtube_cookies.txt" >> "$GITHUB_ENV"
+          fi
+      - name: Run recipe
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CORPUS_DATABASE_URL: ${{ secrets.CORPUS_DATABASE_URL }}
+          MUSIC_AI_API_KEY: ${{ secrets.MUSIC_AI_API_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          YTDLP_USER_AGENT: ${{ secrets.YTDLP_USER_AGENT }}
+          RET_AUDIO_SOURCE: itunes
+        run: |
+          export PATH="$HOME/.deno/bin:$PATH"
+          PAIRS="realeartrainer:chord_quiz"
+          rc=0
+          for pair in $PAIRS; do
+            app="${pair%%:*}"; recipe="${pair##*:}"
+            echo "=== rendering $app/$recipe ==="
+            python scripts/run_recipe.py --app "$app" --recipe "$recipe" || rc=1
+          done
+          exit $rc
+      - name: Build digest
+        id: digest
+        if: always()
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python scripts/digest.py --out digest.html --subject-out subject.txt
+          echo "subject=$(cat subject.txt)" >> "$GITHUB_OUTPUT"
+      - name: Email digest
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER_ADDRESS }}
+          server_port: ${{ secrets.SMTP_SERVER_PORT }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "${{ steps.digest.outputs.subject || '⚠️ Content pipeline FAILED (no digest)' }}"
+          from: ${{ secrets.SMTP_FROM_ADDRESS }}
+          to: 'mayank.ot@gmail.com'
+          html_body: file://digest.html

@@ -1,0 +1,34 @@
+name: Scheduled Publish (Postiz) (runner)
+
+# Public runner — see daily-pipeline.yml. Pushes APPROVED items onto a rolling
+# future calendar in Postiz. The DB-backed "Publishing" toggle on the Settings
+# page (drafts.e7mac.com) decides whether this actually posts; OFF = dry-run.
+
+on:
+  schedule:
+    - cron: '0 14 * * *'   # 14:00 UTC daily
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: e7mac/social-media-video-pipeline
+          ref: main
+          token: ${{ secrets.SMVP_REPO_PAT }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - name: Schedule approved items into Postiz
+        env:
+          POSTIZ_API_KEY: ${{ secrets.POSTIZ_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CORPUS_DATABASE_URL: ${{ secrets.CORPUS_DATABASE_URL }}
+        run: python scripts/publish.py --schedule

@@ -1,0 +1,33 @@
+name: Reconcile Postiz Failures (runner)
+
+# Public runner — see daily-pipeline.yml. Polls Postiz for errored posts and
+# flips the matching catalog items to status='publish_failed'.
+
+on:
+  schedule:
+    - cron: '0 22 * * *'   # 22:00 UTC, a few hours after publish slots
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: e7mac/social-media-video-pipeline
+          ref: main
+          token: ${{ secrets.SMVP_REPO_PAT }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - name: Reconcile Postiz delivery state
+        env:
+          POSTIZ_API_KEY: ${{ secrets.POSTIZ_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/reconcile_posts.py
