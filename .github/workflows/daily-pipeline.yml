@@ -64,10 +64,85 @@ jobs:
       - run: python -m playwright install --with-deps chromium
       - run: pytest -v
 
+  # --- DB-driven cron plan (Slice 5) -----------------------------------------
+  # The scheduled batch set is no longer hardcoded here: this job checks out the
+  # private repo and asks scripts/daily_plan.py which recipes/counts to render
+  # today (from Neon recipe_config — editable in the drafts.e7mac.com Recipes
+  # tab). Cron only; workflow_dispatch keeps its dedicated jobs below.
+  plan:
+    needs: test
+    if: ${{ github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      count: ${{ steps.plan.outputs.count }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: e7mac/social-media-video-pipeline
+          ref: main
+          token: ${{ secrets.SMVP_REPO_PAT }}
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11', cache: 'pip' }
+      - run: pip install -r requirements.txt
+      - name: Build daily render plan from DB config
+        id: plan
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python scripts/daily_plan.py --matrix > matrix.json
+          cat matrix.json
+          echo "matrix=$(cat matrix.json)" >> "$GITHUB_OUTPUT"
+          echo "count=$(python -c 'import json,sys; print(len(json.load(open("matrix.json"))["include"]))')" >> "$GITHUB_OUTPUT"
+
+  render-daily:
+    needs: plan
+    # Cron only; skip cleanly if the plan is empty (all recipes toggled off).
+    if: ${{ github.event_name == 'schedule' && needs.plan.outputs.count != '0' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: e7mac/social-media-video-pipeline
+          ref: main
+          token: ${{ secrets.SMVP_REPO_PAT }}
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11', cache: 'pip' }
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: pip install -r requirements.txt
+      - run: python -m playwright install --with-deps chromium
+      - run: curl -fsSL https://deno.land/install.sh | sh
+      - name: Render planned recipe
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CORPUS_DATABASE_URL: ${{ secrets.CORPUS_DATABASE_URL }}
+          MUSIC_AI_API_KEY: ${{ secrets.MUSIC_AI_API_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          RET_AUDIO_SOURCE: itunes
+        run: |
+          export PATH="$HOME/.deno/bin:$PATH"
+          app='${{ matrix.app }}'; recipe='${{ matrix.recipe }}'
+          kind='${{ matrix.kind }}'; count='${{ matrix.count }}'
+          echo "=== daily render: $app/$recipe ($kind, count=$count) ==="
+          if [ "$kind" = "batch" ]; then
+            python -m scripts.render_batch --app "$app" --n "$count"
+          else
+            python scripts/run_recipe.py --app "$app" --recipe "$recipe"
+          fi
+
   render-batch:
     needs: test
-    # Cron: always. Manual dispatch: only when purging whozart (targeted refresh).
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.purge_whozart }}
+    # Manual dispatch only: a targeted whozart refresh (purge then re-render).
+    # The scheduled whozart batch now runs via plan + render-daily (DB-driven).
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.purge_whozart }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -81,7 +156,7 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: pip install -r requirements.txt
       - run: python -m playwright install --with-deps chromium
-      - name: Render daily whozart batch into drafts
+      - name: Purge + re-render whozart batch into drafts
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           CORPUS_DATABASE_URL: ${{ secrets.CORPUS_DATABASE_URL }}
@@ -96,7 +171,9 @@ jobs:
 
   render-batch-stave:
     needs: test
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.purge_stave }}
+    # Manual dispatch only: a targeted stave refresh (purge then re-render).
+    # The scheduled stave batch now runs via plan + render-daily (DB-driven).
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.purge_stave }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -110,7 +187,7 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: pip install -r requirements.txt
       - run: python -m playwright install --with-deps chromium
-      - name: Render stave batch into drafts
+      - name: Purge + re-render stave batch into drafts
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           CORPUS_DATABASE_URL: ${{ secrets.CORPUS_DATABASE_URL }}
@@ -151,8 +228,10 @@ jobs:
           --app "${{ inputs.app }}" --piece "${{ inputs.piece }}"
 
   render-and-notify:
-    needs: test
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.piece == '' }}
+    # On cron: wait for the DB-driven render-daily matrix, then digest+email.
+    # On dispatch (no piece): render the single app/recipe, then digest+email.
+    needs: [test, render-daily]
+    if: ${{ always() && needs.test.result == 'success' && (github.event_name != 'workflow_dispatch' || inputs.piece == '') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -168,6 +247,9 @@ jobs:
       - run: python -m playwright install --with-deps chromium
       - run: curl -fsSL https://deno.land/install.sh | sh
       - name: Run recipe
+        # Dispatch only: the single app/recipe to (re)render on demand. The
+        # scheduled set is rendered by plan + render-daily (DB-driven) above.
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           CORPUS_DATABASE_URL: ${{ secrets.CORPUS_DATABASE_URL }}
