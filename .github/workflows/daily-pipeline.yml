@@ -133,7 +133,7 @@ jobs:
           kind='${{ matrix.kind }}'; count='${{ matrix.count }}'
           echo "=== daily render: $app/$recipe ($kind, count=$count) ==="
           if [ "$kind" = "batch" ]; then
-            python -m scripts.render_batch --app "$app" --n "$count"
+            python -m scripts.render_batch --app "$app" --recipe "$recipe" --n "$count"
           else
             python scripts/run_recipe.py --app "$app" --recipe "$recipe"
           fi
