@@ -234,7 +234,9 @@ jobs:
     needs: [test, render-daily]
     if: ${{ always() && needs.test.result == 'success' && (github.event_name != 'workflow_dispatch' || inputs.piece == '') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # On dispatch this job renders the single app/recipe (slow RET MoviePy render),
+    # so it needs the same 60m headroom as render-daily, not the digest-only 30m.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
