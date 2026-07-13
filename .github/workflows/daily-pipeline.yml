@@ -101,7 +101,8 @@ jobs:
     # Cron only; skip cleanly if the plan is empty (all recipes toggled off).
     if: ${{ github.event_name == 'schedule' && needs.plan.outputs.count != '0' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    # RET's synthesized MoviePy render can exceed 40m in CI; 60 gives it headroom.
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
