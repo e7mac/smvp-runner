@@ -136,7 +136,11 @@ jobs:
           if [ "$kind" = "batch" ]; then
             python -m scripts.render_batch --app "$app" --recipe "$recipe" --n "$count"
           else
-            python scripts/run_recipe.py --app "$app" --recipe "$recipe"
+            # --limit is what makes count mean anything for a recipe-run leg.
+            # Without it, orchestrate() renders every spec discover() yields —
+            # RET's all-time pool is ~50 songs, so this leg rendered until the
+            # 60-min job timeout killed it, daily, while its siblings went green.
+            python scripts/run_recipe.py --app "$app" --recipe "$recipe" --limit "$count"
           fi
 
   render-batch:
