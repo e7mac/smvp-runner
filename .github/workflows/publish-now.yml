@@ -28,6 +28,12 @@ jobs:
       - name: Publish item now
         env:
           POSTIZ_API_KEY: ${{ secrets.POSTIZ_API_KEY }}
+          # Re-presigning at publish time (publish.py _media_url): stored
+          # s3_url values die after 7 days; long-lived queues (stave
+          # notation_short) outlive them.
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           CORPUS_DATABASE_URL: ${{ secrets.CORPUS_DATABASE_URL }}
           POSTIZ_PUBLISH_ENABLED: '1'
