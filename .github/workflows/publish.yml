@@ -26,6 +26,22 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
       - run: pip install -r requirements.txt
+      # Approving was the last manual step — one click per video — which is why
+      # accounts went dark while sitting on hundreds of drafts. Picks by MEASURED
+      # per-video performance (post_metrics), per ACCOUNT, one slot per format.
+      #
+      # This mirrors the step in the private repo's publish.yml. That copy is
+      # workflow_dispatch-only — the CRON lives here — so without this the
+      # auto-approver never ran on a schedule and cadence still depended on
+      # hand-clicking Publish-now. Any new step added there must be added here.
+      #
+      # Runs BEFORE the scheduler so anything approved here goes out on the same
+      # run. Still governed by the Settings toggle downstream: with publishing
+      # OFF this only moves rows draft -> approved.
+      - name: Auto-approve the best-performing drafts
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/auto_approve.py --per-app 2 --per-recipe 1 --apply
       - name: Schedule approved items into Postiz
         env:
           POSTIZ_API_KEY: ${{ secrets.POSTIZ_API_KEY }}
