@@ -59,7 +59,22 @@ jobs:
           token: ${{ secrets.SMVP_REPO_PAT }}
       - uses: actions/setup-python@v5
         with: { python-version: '3.11', cache: 'pip' }
-      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install ffmpeg
+        # 2026-08-19: an unbounded apt hang consumed this job's entire timeout
+        # budget; the run ended `cancelled` (grey) rather than red, so the
+        # failure was invisible. Bound each attempt so a hang fails fast, and
+        # retry once so a transient mirror blip self-heals.
+        timeout-minutes: 9
+        run: |
+          for attempt in 1 2; do
+            if timeout 60 sudo apt-get update && timeout 180 sudo apt-get install -y ffmpeg; then
+              exit 0
+            fi
+            echo "::warning::ffmpeg install attempt $attempt failed or timed out"
+            sleep 10
+          done
+          echo "::error::ffmpeg install failed after 2 attempts"
+          exit 1
       - run: pip install -r requirements.txt
       - run: python -m playwright install --with-deps chromium
       - run: pytest -v
@@ -114,7 +129,22 @@ jobs:
           token: ${{ secrets.SMVP_REPO_PAT }}
       - uses: actions/setup-python@v5
         with: { python-version: '3.11', cache: 'pip' }
-      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install ffmpeg
+        # 2026-08-19: an unbounded apt hang consumed this job's entire timeout
+        # budget; the run ended `cancelled` (grey) rather than red, so the
+        # failure was invisible. Bound each attempt so a hang fails fast, and
+        # retry once so a transient mirror blip self-heals.
+        timeout-minutes: 9
+        run: |
+          for attempt in 1 2; do
+            if timeout 60 sudo apt-get update && timeout 180 sudo apt-get install -y ffmpeg; then
+              exit 0
+            fi
+            echo "::warning::ffmpeg install attempt $attempt failed or timed out"
+            sleep 10
+          done
+          echo "::error::ffmpeg install failed after 2 attempts"
+          exit 1
       - run: pip install -r requirements.txt
       - run: python -m playwright install --with-deps chromium
       - run: curl -fsSL https://deno.land/install.sh | sh
@@ -158,7 +188,22 @@ jobs:
           token: ${{ secrets.SMVP_REPO_PAT }}
       - uses: actions/setup-python@v5
         with: { python-version: '3.11', cache: 'pip' }
-      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install ffmpeg
+        # 2026-08-19: an unbounded apt hang consumed this job's entire timeout
+        # budget; the run ended `cancelled` (grey) rather than red, so the
+        # failure was invisible. Bound each attempt so a hang fails fast, and
+        # retry once so a transient mirror blip self-heals.
+        timeout-minutes: 9
+        run: |
+          for attempt in 1 2; do
+            if timeout 60 sudo apt-get update && timeout 180 sudo apt-get install -y ffmpeg; then
+              exit 0
+            fi
+            echo "::warning::ffmpeg install attempt $attempt failed or timed out"
+            sleep 10
+          done
+          echo "::error::ffmpeg install failed after 2 attempts"
+          exit 1
       - run: pip install -r requirements.txt
       - run: python -m playwright install --with-deps chromium
       - name: Purge + re-render whozart batch into drafts
@@ -189,7 +234,22 @@ jobs:
           token: ${{ secrets.SMVP_REPO_PAT }}
       - uses: actions/setup-python@v5
         with: { python-version: '3.11', cache: 'pip' }
-      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install ffmpeg
+        # 2026-08-19: an unbounded apt hang consumed this job's entire timeout
+        # budget; the run ended `cancelled` (grey) rather than red, so the
+        # failure was invisible. Bound each attempt so a hang fails fast, and
+        # retry once so a transient mirror blip self-heals.
+        timeout-minutes: 9
+        run: |
+          for attempt in 1 2; do
+            if timeout 60 sudo apt-get update && timeout 180 sudo apt-get install -y ffmpeg; then
+              exit 0
+            fi
+            echo "::warning::ffmpeg install attempt $attempt failed or timed out"
+            sleep 10
+          done
+          echo "::error::ffmpeg install failed after 2 attempts"
+          exit 1
       - run: pip install -r requirements.txt
       - run: python -m playwright install --with-deps chromium
       - name: Purge + re-render stave batch into drafts
@@ -217,7 +277,22 @@ jobs:
           token: ${{ secrets.SMVP_REPO_PAT }}
       - uses: actions/setup-python@v5
         with: { python-version: '3.11', cache: 'pip' }
-      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install ffmpeg
+        # 2026-08-19: an unbounded apt hang consumed this job's entire timeout
+        # budget; the run ended `cancelled` (grey) rather than red, so the
+        # failure was invisible. Bound each attempt so a hang fails fast, and
+        # retry once so a transient mirror blip self-heals.
+        timeout-minutes: 9
+        run: |
+          for attempt in 1 2; do
+            if timeout 60 sudo apt-get update && timeout 180 sudo apt-get install -y ffmpeg; then
+              exit 0
+            fi
+            echo "::warning::ffmpeg install attempt $attempt failed or timed out"
+            sleep 10
+          done
+          echo "::error::ffmpeg install failed after 2 attempts"
+          exit 1
       - run: pip install -r requirements.txt
       - run: python -m playwright install --with-deps chromium
       - name: Render one piece into drafts
@@ -249,7 +324,22 @@ jobs:
           token: ${{ secrets.SMVP_REPO_PAT }}
       - uses: actions/setup-python@v5
         with: { python-version: '3.11', cache: 'pip' }
-      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install ffmpeg
+        # 2026-08-19: an unbounded apt hang consumed this job's entire timeout
+        # budget; the run ended `cancelled` (grey) rather than red, so the
+        # failure was invisible. Bound each attempt so a hang fails fast, and
+        # retry once so a transient mirror blip self-heals.
+        timeout-minutes: 9
+        run: |
+          for attempt in 1 2; do
+            if timeout 60 sudo apt-get update && timeout 180 sudo apt-get install -y ffmpeg; then
+              exit 0
+            fi
+            echo "::warning::ffmpeg install attempt $attempt failed or timed out"
+            sleep 10
+          done
+          echo "::error::ffmpeg install failed after 2 attempts"
+          exit 1
       - run: pip install -r requirements.txt
       - run: python -m playwright install --with-deps chromium
       - run: curl -fsSL https://deno.land/install.sh | sh
