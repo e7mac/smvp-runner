@@ -29,3 +29,20 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           POSTIZ_API_KEY: ${{ secrets.POSTIZ_API_KEY }}
         run: python scripts/collect_analytics.py --days 30
+      # Per-POST rows: which recipe actually worked, which the channel series
+      # structurally cannot answer (the accounts also carry hand-posted videos,
+      # so a channel total is not attributable to a format). Re-run daily so
+      # view counts track over time. Kept as a separate step and not `if:
+      # failure()`-coupled — a Postiz hiccup on one pass shouldn't hide the other.
+      #
+      # MUST stay in sync with social-media-video-pipeline/.github/workflows/
+      # analytics.yml. That repo's workflows are workflow_dispatch-only; the cron
+      # lives here, so a step added only there never runs on a schedule. This
+      # step was missing here from 08-18 to 08-19 and post_metrics — the table
+      # auto_approve.py ranks formats by — silently never refreshed.
+      - name: Collect per-post metrics
+        if: always()
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          POSTIZ_API_KEY: ${{ secrets.POSTIZ_API_KEY }}
+        run: python scripts/collect_analytics.py --posts --days 30
