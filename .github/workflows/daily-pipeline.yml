@@ -76,7 +76,9 @@ jobs:
           echo "::error::ffmpeg install failed after 2 attempts"
           exit 1
       - run: pip install -r requirements.txt
+        timeout-minutes: 6
       - run: python -m playwright install --with-deps chromium
+        timeout-minutes: 6
       - run: pytest -v
 
   # --- DB-driven cron plan (Slice 5) -----------------------------------------
@@ -101,6 +103,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: '3.11', cache: 'pip' }
       - run: pip install -r requirements.txt
+        timeout-minutes: 6
       - name: Build daily render plan from DB config
         id: plan
         env:
@@ -146,8 +149,11 @@ jobs:
           echo "::error::ffmpeg install failed after 2 attempts"
           exit 1
       - run: pip install -r requirements.txt
+        timeout-minutes: 6
       - run: python -m playwright install --with-deps chromium
+        timeout-minutes: 6
       - run: curl -fsSL https://deno.land/install.sh | sh
+        timeout-minutes: 3
       - name: Render planned recipe
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -205,7 +211,9 @@ jobs:
           echo "::error::ffmpeg install failed after 2 attempts"
           exit 1
       - run: pip install -r requirements.txt
+        timeout-minutes: 6
       - run: python -m playwright install --with-deps chromium
+        timeout-minutes: 6
       - name: Purge + re-render whozart batch into drafts
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -251,7 +259,9 @@ jobs:
           echo "::error::ffmpeg install failed after 2 attempts"
           exit 1
       - run: pip install -r requirements.txt
+        timeout-minutes: 6
       - run: python -m playwright install --with-deps chromium
+        timeout-minutes: 6
       - name: Purge + re-render stave batch into drafts
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -294,7 +304,9 @@ jobs:
           echo "::error::ffmpeg install failed after 2 attempts"
           exit 1
       - run: pip install -r requirements.txt
+        timeout-minutes: 6
       - run: python -m playwright install --with-deps chromium
+        timeout-minutes: 6
       - name: Render one piece into drafts
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -341,8 +353,11 @@ jobs:
           echo "::error::ffmpeg install failed after 2 attempts"
           exit 1
       - run: pip install -r requirements.txt
+        timeout-minutes: 6
       - run: python -m playwright install --with-deps chromium
+        timeout-minutes: 6
       - run: curl -fsSL https://deno.land/install.sh | sh
+        timeout-minutes: 3
       - name: Run recipe
         # Dispatch only: the single app/recipe to (re)render on demand. The
         # scheduled set is rendered by plan + render-daily (DB-driven) above.
