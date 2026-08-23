@@ -41,7 +41,14 @@ jobs:
       - name: Auto-approve the best-performing drafts
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python scripts/auto_approve.py --per-app 2 --per-recipe 1 --apply
+        # RET (the lab account) runs at --per-app 3: its two chord_quiz pool
+        # lanes (classical + modern) are deliberately separately capped, so a
+        # global --per-app 2 hands both RET slots to chord_quiz and a second
+        # format (lesson_modules) can never earn its first data point. The
+        # other accounts stay at 2.
+        run: |
+          python scripts/auto_approve.py --app realeartrainer --per-app 3 --per-recipe 1 --apply
+          python scripts/auto_approve.py --app stave --app whozart --per-app 2 --per-recipe 1 --apply
       - name: Schedule approved items into Postiz
         env:
           POSTIZ_API_KEY: ${{ secrets.POSTIZ_API_KEY }}
