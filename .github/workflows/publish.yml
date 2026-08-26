@@ -26,6 +26,39 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
       - run: pip install -r requirements.txt
+      - name: Install ffmpeg
+        # judge.py samples clip frames with ffprobe/ffmpeg. Same bounded-retry
+        # apt pattern as daily-pipeline.yml (2026-08-19 scar: an unbounded apt
+        # hang consumed a job's whole timeout as a grey 'cancelled').
+        timeout-minutes: 9
+        run: |
+          for attempt in 1 2; do
+            if timeout 60 sudo apt-get update && timeout 180 sudo apt-get install -y ffmpeg; then
+              exit 0
+            fi
+            echo "::warning::ffmpeg install attempt $attempt failed or timed out"
+            sleep 10
+          done
+          echo "::error::ffmpeg install failed after 2 attempts"
+          exit 1
+      # LLM quality gate BEFORE auto-approve: removing per-item human approval
+      # removed the last reader of clip quality, so the judge (clarity/
+      # credibility rubric, src/common/judge.py) is the gate now — a chord_quiz
+      # rendered from a wrong Music.AI transcription must not reach a
+      # music-education account. Drops go to status='rejected' with the reason
+      # in notes. Fail-open on infra: judge.py exits 0 when ANTHROPIC_API_KEY
+      # is unset, and per-clip errors only log — a judge hiccup never halts
+      # posting. --oldest-first aligns the gate with auto_approve (which picks
+      # OLDEST drafts); --limit 40 bounds daily cost and drains the pre-gate
+      # backlog incrementally instead of judging (and possibly mass-dropping)
+      # hundreds of standing drafts in one first run.
+      #
+      # This mirrors the step in the private repo's publish.yml — keep in sync.
+      - name: Quality-gate drafts (LLM judge)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python scripts/judge.py --apply --oldest-first --limit 40
       # Approving was the last manual step — one click per video — which is why
       # accounts went dark while sitting on hundreds of drafts. Picks by MEASURED
       # per-video performance (post_metrics), per ACCOUNT, one slot per format.
