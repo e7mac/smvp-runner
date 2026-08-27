@@ -45,4 +45,11 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           POSTIZ_API_KEY: ${{ secrets.POSTIZ_API_KEY }}
+          # Credentialed per-post metrics (MAY-63) — all OPTIONAL: an absent
+          # secret WARNs once and skips that platform; rows land with URLs.
+          # MUST stay in sync with social-media-video-pipeline's analytics.yml.
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          TIKTOK_ACCOUNTS: ${{ secrets.TIKTOK_ACCOUNTS }}
+          IG_ACCOUNTS_JSON: ${{ secrets.IG_ACCOUNTS_JSON }}
         run: python scripts/collect_analytics.py --posts --days 30
