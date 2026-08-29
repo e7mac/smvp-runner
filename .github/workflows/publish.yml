@@ -90,11 +90,18 @@ jobs:
         # RET (the lab account) runs at --per-app 3: its two chord_quiz pool
         # lanes (classical + modern) are deliberately separately capped, so a
         # global --per-app 2 hands both RET slots to chord_quiz and a second
-        # format (lesson_modules) can never earn its first data point. The
-        # other accounts stay at 2.
+        # format (lesson_modules) can never earn its first data point.
+        # stave is at 3 for the same reason, from 2026-08-29: it has TWO proven
+        # formats (notation_short, read_notes), so at --per-app 2 every slot is
+        # taken by a proven format and an unproven one can never reach the third
+        # position where select() puts it. read_chords/read_interval shipped with
+        # 22 drafts and zero path to a first data point until this changed.
+        # whozart stays at 2 — it has one proven format, so its second slot
+        # already goes to an unproven one.
         run: |
           python scripts/auto_approve.py --app realeartrainer --per-app 3 --per-recipe 1 --apply
-          python scripts/auto_approve.py --app stave --app whozart --per-app 2 --per-recipe 1 --apply
+          python scripts/auto_approve.py --app stave --per-app 3 --per-recipe 1 --apply
+          python scripts/auto_approve.py --app whozart --per-app 2 --per-recipe 1 --apply
       - name: Schedule approved items into Postiz
         env:
           POSTIZ_API_KEY: ${{ secrets.POSTIZ_API_KEY }}
