@@ -55,6 +55,12 @@ jobs:
       #
       # This mirrors the step in the private repo's publish.yml — keep in sync.
       - name: Quality-gate drafts (LLM judge)
+        # Last line of defence for the fail-open contract (MAY-89): judge.py
+        # now exits 0 on ANY of its own failures, but a process-level death
+        # (interpreter crash, OOM) under this job's bash -e must not abort
+        # publishing either — 2026-08-28's first armed run proved a crashing
+        # gate silently inverts into a hard gate on ALL distribution.
+        continue-on-error: true
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
