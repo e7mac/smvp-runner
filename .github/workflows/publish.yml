@@ -64,6 +64,13 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # judge.py re-presigns clip media from s3_key (MAY-96): the stored
+          # s3_url is a 7-day render-time presign, and --oldest-first aims the
+          # judge at exactly the drafts most likely to have outlived it — its
+          # first green run 403'd on all 40 oldest clips (GATE DARK).
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
         run: python scripts/judge.py --apply --oldest-first --limit 40
       # Approving was the last manual step — one click per video — which is why
       # accounts went dark while sitting on hundreds of drafts. Picks by MEASURED
