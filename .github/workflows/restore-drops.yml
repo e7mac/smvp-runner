@@ -1,0 +1,53 @@
+name: Restore Judge Drops (runner)
+
+# Manual dispatch only — the MAY-97 backfill path for judge-dropped drafts.
+# Runs scripts/restore_judge_drops.py from the private repo: dry-run unless
+# the `apply` input is true. The script only ever touches rows with
+# status='rejected' AND notes LIKE 'judge drop%' (human rejections are
+# unreachable) and clears notes on restore so rows re-enter the judge pool
+# gated (see the script's docstring for why notes=NULL is load-bearing).
+
+on:
+  workflow_dispatch:
+    inputs:
+      args:
+        description: "Selector args, e.g. --dropped-on 2026-08-29 --exclude stave/read_notes"
+        required: true
+        type: string
+      apply:
+        description: "Actually write (unchecked = dry run)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: e7mac/social-media-video-pipeline
+          ref: main
+          token: ${{ secrets.SMVP_REPO_PAT }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install psycopg[binary]
+      - name: Restore judge drops
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ARGS: ${{ inputs.args }}
+          APPLY: ${{ inputs.apply }}
+        run: |
+          EXTRA=""
+          if [ "$APPLY" = "true" ]; then EXTRA="--apply"; fi
+          # shellcheck disable=SC2086 — ARGS is a deliberate word-split of selector flags
+          python scripts/restore_judge_drops.py $ARGS $EXTRA | tee restore.log
+          echo "### Restore judge drops" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -40 restore.log >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
