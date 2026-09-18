@@ -99,7 +99,7 @@ jobs:
         # whozart stays at 2 — it has one proven format, so its second slot
         # already goes to an unproven one.
         run: |
-          python scripts/auto_approve.py --app realeartrainer --per-app 3 --per-recipe 1 --apply
+          python scripts/auto_approve.py --app realeartrainer --per-app 3 --per-recipe 2 --apply
           python scripts/auto_approve.py --app stave --per-app 3 --per-recipe 1 --apply
           python scripts/auto_approve.py --app whozart --per-app 2 --per-recipe 1 --apply
       - name: Schedule approved items into Postiz
