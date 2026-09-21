@@ -152,7 +152,7 @@ jobs:
         timeout-minutes: 6
       - run: python -m playwright install --with-deps chromium
         timeout-minutes: 6
-      - run: curl -fsSL https://deno.land/install.sh | sh
+      - run: curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 https://deno.land/install.sh | sh
         timeout-minutes: 3
       - name: Render planned recipe
         env:
@@ -356,7 +356,7 @@ jobs:
         timeout-minutes: 6
       - run: python -m playwright install --with-deps chromium
         timeout-minutes: 6
-      - run: curl -fsSL https://deno.land/install.sh | sh
+      - run: curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 https://deno.land/install.sh | sh
         timeout-minutes: 3
       - name: Run recipe
         # Dispatch only: the single app/recipe to (re)render on demand. The
