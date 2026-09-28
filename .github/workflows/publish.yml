@@ -96,11 +96,14 @@ jobs:
         # taken by a proven format and an unproven one can never reach the third
         # position where select() puts it. read_chords/read_interval shipped with
         # 22 drafts and zero path to a first data point until this changed.
+        # stave --reserve explainer=1 (2026-09-27): one of stave's 3 slots goes to a Tesseract
+        # explainer (drafted locally by scripts/local_explainers.sh) whenever one is queued; the
+        # slot falls back to the normal ranking when none is. Cadence is 3/day (Settings) to match.
         # whozart stays at 2 — it has one proven format, so its second slot
         # already goes to an unproven one.
         run: |
           python scripts/auto_approve.py --app realeartrainer --per-app 3 --per-recipe 2 --apply
-          python scripts/auto_approve.py --app stave --per-app 3 --per-recipe 1 --apply
+          python scripts/auto_approve.py --app stave --per-app 3 --per-recipe 1 --reserve explainer=1 --apply
           python scripts/auto_approve.py --app whozart --per-app 2 --per-recipe 1 --apply
       - name: Schedule approved items into Postiz
         env:
