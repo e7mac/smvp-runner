@@ -30,6 +30,10 @@ jobs:
         # judge.py samples clip frames with ffprobe/ffmpeg. Same bounded-retry
         # apt pattern as daily-pipeline.yml (2026-08-19 scar: an unbounded apt
         # hang consumed a job's whole timeout as a grey 'cancelled').
+        # Non-fatal: ffmpeg only feeds the fail-open judge (a missing binary is a
+        # per-clip error, never a drop). 2026-10-01 a slow apt mirror failed this
+        # step and skipped auto-approve + scheduling for the whole fleet.
+        continue-on-error: true
         timeout-minutes: 9
         run: |
           for attempt in 1 2; do
