@@ -106,9 +106,19 @@ jobs:
         # whozart stays at 2 — it has one proven format, so its second slot
         # already goes to an unproven one.
         run: |
-          python scripts/auto_approve.py --app realeartrainer --per-app 3 --per-recipe 2 --apply
-          python scripts/auto_approve.py --app stave --per-app 3 --per-recipe 1 --reserve explainer=1 --apply
+          python scripts/auto_approve.py --app realeartrainer --per-app 5 --per-recipe 2 --reserve changes_quiz=1 --apply
+          python scripts/auto_approve.py --app stave --per-app 5 --per-recipe 1 --reserve explainer=1 --apply
           python scripts/auto_approve.py --app whozart --per-app 2 --per-recipe 1 --apply
+      # 2026-10-20 (c16): RET + stave 3 -> 5/day (owner call; Settings per_day
+      # raised to match). RET --reserve changes_quiz=1 for the jazz-changes
+      # lane's first 15 posts; falls back to ranking while it has no drafts.
+      # Lane table: report only. Its own step with continue-on-error so a view or
+      # psycopg error can never stop the Postiz step below.
+      - name: Lane table (report only)
+        continue-on-error: true
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/lane_table.py
       - name: Schedule approved items into Postiz
         env:
           POSTIZ_API_KEY: ${{ secrets.POSTIZ_API_KEY }}
